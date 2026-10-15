@@ -29,6 +29,41 @@ def manhattan(state):
     return distance
 
 
+def linear_conflict(state):
+    # Only count conflict pairs that do not share tiles.
+    used = set()
+    conflicts = 0
+
+    for i in range(9):
+        a = state[i]
+
+        if a == 0 or a in used:
+            continue
+
+        for j in range(i + 1, 9):
+            b = state[j]
+
+            if b == 0 or b in used:
+                continue
+
+            row_conflict = (
+                i // 3 == j // 3 == (a - 1) // 3 == (b - 1) // 3
+                and (a - 1) % 3 > (b - 1) % 3
+            )
+
+            col_conflict = (
+                i % 3 == j % 3 == (a - 1) % 3 == (b - 1) % 3
+                and (a - 1) // 3 > (b - 1) // 3
+            )
+
+            if row_conflict or col_conflict:
+                used.update((a, b))
+                conflicts += 1
+                break
+
+    return manhattan(state) + 2 * conflicts
+
+
 def solvable(state):
     tiles = [x for x in state if x != 0]
     inversions = 0
@@ -60,6 +95,11 @@ def neighbours(state):
 
 
 def a_star(start, heuristic):
+    if len(start) != 9 or set(start) != set(range(9)):
+        raise ValueError(
+            'The puzzle must contain each number from 0 to 8 once.'
+        )
+
     if not solvable(start):
         return None, 0
 
@@ -91,64 +131,53 @@ def a_star(start, heuristic):
     return None, expanded
 
 
-states = [
-    (1, 2, 3, 4, 5, 6, 7, 0, 8),
-    (1, 2, 3, 4, 5, 6, 0, 7, 8),
-    (1, 3, 6, 4, 2, 8, 7, 5, 0),
-    (1, 2, 3, 4, 5, 6, 8, 7, 0),
-    (2, 1, 3, 4, 5, 6, 7, 0, 8)
-]
+def get_case(number):
+    if number == 1:
+        return (1, 2, 3, 4, 5, 6, 7, 0, 8)
+    elif number == 2:
+        return (1, 2, 3, 4, 5, 6, 0, 7, 8)
+    elif number == 3:
+        return (1, 3, 6, 4, 2, 8, 7, 5, 0)
+    elif number == 4:
+        return (1, 2, 3, 4, 5, 6, 8, 7, 0)
+    elif number == 5:
+        return (2, 1, 3, 4, 5, 6, 7, 0, 8)
+    else:
+        raise ValueError('The case number must be from 1 to 5.')
 
 
-for number, state in enumerate(states, 1):
-    print("\nTest", number)
+def main():
+    print('Case | Heuristic | Result | Moves | Nodes | Time (seconds)')
 
-    for i in range(0, 9, 3):
-        print(state[i:i + 3])
+    for number in range(1, 6):
+        state = get_case(number)
 
-    print("Solvable:", solvable(state))
+        print('\nTest', number)
 
-    for name, heuristic in [("Misplaced", misplaced),
-                            ("Manhattan", manhattan)]:
+        for i in range(0, 9, 3):
+            print(state[i:i + 3])
 
-        start_time = perf_counter()
-        moves, expanded = a_star(state, heuristic)
-        time_taken = (perf_counter() - start_time) * 1000
+        for name, heuristic in [
+            ('Misplaced', misplaced),
+            ('Manhattan', manhattan),
+            ('Linear Conflict', linear_conflict)
+        ]:
+            start_time = perf_counter()
+            moves, expanded = a_star(state, heuristic)
+            time_taken = perf_counter() - start_time
 
-        print(name, "| Moves:", moves,
-              "| Nodes:", expanded,
-              "| Time: %.3f ms" % time_taken)
+            if moves is None:
+                result = 'Unsolvable'
+                moves_text = 'No solution'
+            else:
+                result = 'Solved'
+                moves_text = str(moves)
+
+            print(
+                f'{number} | {name} | {result} | {moves_text} | '
+                f'{expanded} | {time_taken:.9f}'
+            )
 
 
-# Task 8 - Comparing the two heuristics
-
-# Misplaced Tiles:
-# Counts how many tiles are in the wrong position.
-# We don't count the empty space.
-
-# Manhattan Distance:
-# Calculates how far each tile is from its correct place.
-# It counts the horizontal and vertical moves needed.
-
-# A* Search:
-# Uses a priority queue to choose the next state.
-# f = g + h
-# g is the moves made so far.
-# h is the estimated moves left.
-
-# Testing:
-# I tested 5 different puzzles.
-# The first 3 can be solved, but the last 2 cannot.
-# I compared the moves, nodes visited and time taken.
-
-# Time and Space Complexity:
-# A* can take exponential time and space in general.
-# The 8-puzzle has a limited number of possible states.
-# The priority queue stores states waiting to be checked.
-
-# Conclusion:
-# Both heuristics can find the shortest solution.
-# Manhattan Distance usually works better because
-# it considers how far each tile is from its goal.
-# The program also checks if a puzzle is solvable
-# before starting the search.
+if __name__ == '__main__':
+    main()
